@@ -1,0 +1,20 @@
+[project]
+name = "chess-maia"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "requests",
+    # "python-chess>=1.10",
+    # "zstandard>=0.22",
+
+    # # Training (week 2+)
+    # "torch",
+    # "transformers",
+    # "peft",
+    # "datasets",
+    # "accelerate",
+    # "wandb",
+]
+
+[tool.setuptools]
+py-modules = []
