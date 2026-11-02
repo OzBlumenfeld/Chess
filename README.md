@@ -35,6 +35,16 @@ python data/prepare_data.py \
 python data/make_examples.py --in-dir data/processed --out-dir data/examples
 ```
 
+## Fetching your own games
+
+`fetch_games.py` supports Lichess and Chess.com (both save NDJSON, each game has a `pgn` field):
+
+```python
+from fetch_games import save_games
+save_games("ozblumen", "lichess.ndjson", source="lichess", perfType="blitz", rated="true")
+save_games("ozblumen", "chesscom.ndjson", source="chesscom", time_class="blitz", rated="true")
+```
+
 ## Design notes
 
 - **No leakage:** the split is a stable hash of the game id, so every position from a game lands in the same split.
