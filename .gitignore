@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.vscode/
 
 # Data and artifacts stay out of git
 data/raw/
