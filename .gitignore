@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Data and artifacts stay out of git
+data/raw/
+data/processed/
+data/examples/
+checkpoints/
+wandb/
+*.zst
+*.pgn
