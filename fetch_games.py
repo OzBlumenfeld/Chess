@@ -13,7 +13,7 @@ def lichess_games(user, max_games=100, **params):
         if line:
             yield json.loads(line)
 
-def save_games(user, path, max_games=100, **params):
+def save_games_to_file(user, path, max_games=100, **params):
     with open(path, "w") as f:
         n = 0
         for g in lichess_games(user, max_games, **params):
@@ -22,5 +22,11 @@ def save_games(user, path, max_games=100, **params):
     return n
 
 if __name__ == "__main__":
-    n = save_games("ozblumen", "games.ndjson", max_games=100, perfType="blitz", rated="true")
-    print(f"Saved {n} games to games.ndjson")
+    import logging
+    from mongo_store import save_games
+
+    logging.basicConfig(level=logging.INFO)
+    inserted, skipped = save_games(
+        lichess_games("ozblumen", max_games=100, perfType="blitz", rated="true")
+    )
+    print(f"Inserted {inserted}, skipped {skipped} existing")
