@@ -5,7 +5,7 @@ requires-python = ">=3.9"
 dependencies = [
     "requests",
     "pymongo",
-    # "python-chess>=1.10",
+    "chess>=1.10",
     # "zstandard>=0.22",
 
     # # Training (week 2+)

@@ -11,10 +11,11 @@ MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("MONGO_DB", "chess_maia")
 COLLECTION = "games"
 CHESSCOM_COLLECTION = "chesscom_games"
+ANALYSIS_COLLECTION = "analyses"
 
 
-def get_collection(uri=MONGO_URI, db=DB_NAME, name=COLLECTION):
-    return MongoClient(uri)[db][name]
+def get_collection(uri=MONGO_URI, db=DB_NAME, name=COLLECTION, **client_kwargs):
+    return MongoClient(uri, **client_kwargs)[db][name]
 
 
 def save_game(game, collection=None):
