@@ -12,3 +12,10 @@ checkpoints/
 wandb/
 *.zst
 *.pgn
+
+# iOS build output; the Xcode project is generated from ios/project.yml
+ios/ChessAnalyzer.xcodeproj/
+.build/
+.swiftpm/
+DerivedData/
+.DS_Store
