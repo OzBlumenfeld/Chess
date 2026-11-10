@@ -30,3 +30,10 @@ cd ios/ChessCore && swift test
 ```
 
 The UI tests run from Xcode (⌘U) or with `xcodebuild test` on a simulator.
+
+## App icon
+
+`ChessAnalyzer/Assets.xcassets/AppIcon.appiconset/AppIcon.png` is a single
+1024×1024 image; Xcode makes the other sizes. `Design/AppIcon/` holds the
+alternatives (`preview.png` shows all three) and their SVG sources. To switch,
+copy another PNG over `AppIcon.png`.
