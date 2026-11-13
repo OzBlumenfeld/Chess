@@ -11,7 +11,12 @@ struct ChessAnalyzerApp: App {
 
   var body: some Scene {
     WindowGroup {
-      SearchView()
+      TabView {
+        SearchView()
+          .tabItem { Label("Games", systemImage: "magnifyingglass") }
+        OpeningsView()
+          .tabItem { Label("Openings", systemImage: "book") }
+      }
     }
   }
 }

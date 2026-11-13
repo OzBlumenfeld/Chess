@@ -213,3 +213,33 @@ private let archives = Data(#"{"archives":["\#(oldURL)","\#(newURL)"]}"#.utf8)
     #expect(summary.whiteFirstMove == "e4" && summary.blackFirstMove == "c5")
   }
 }
+
+@Suite struct OpeningLibraryTests {
+  @Test func everyLineReplaysAndStartsWithItsOpening() throws {
+    for opening in OpeningLibrary.all {
+      let base = try GameReplay(pgn: opening.moves).plies.map(\.san)
+      #expect(!base.isEmpty, "\(opening.name)")
+      #expect(!opening.variations.isEmpty, "\(opening.name)")
+      for variation in opening.variations {
+        let line = try GameReplay(pgn: variation.moves).plies.map(\.san)
+        #expect(Array(line.prefix(base.count)) == base, "\(variation.name)")
+        #expect(line.count > base.count, "\(variation.name)")
+      }
+    }
+  }
+
+  @Test func namesAreUnique() {
+    let names = OpeningLibrary.all.map(\.name)
+    #expect(Set(names).count == names.count)
+    for opening in OpeningLibrary.all {
+      let variations = opening.variations.map(\.name)
+      #expect(Set(variations).count == variations.count, "\(opening.name)")
+    }
+  }
+
+  @Test func everyFamilyHasOpenings() {
+    for family in Opening.Family.allCases {
+      #expect(!OpeningLibrary.openings(in: family).isEmpty)
+    }
+  }
+}

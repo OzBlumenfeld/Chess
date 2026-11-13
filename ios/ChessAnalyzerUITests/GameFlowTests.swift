@@ -65,6 +65,29 @@ final class GameFlowTests: XCTestCase {
     snapshot(app, "6-unknown")
   }
 
+  @MainActor
+  func testOpeningsTabStepsThroughALine() {
+    let app = launchWithEmptyNickname()
+    app.tabBars.buttons["Openings"].tap()
+    let italian = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Italian Game'"))
+    XCTAssertTrue(italian.firstMatch.waitForExistence(timeout: 5))
+    italian.firstMatch.tap()
+
+    let current = app.staticTexts["currentMove"]
+    XCTAssertTrue(current.waitForExistence(timeout: 5))
+    XCTAssertEqual(current.label, "Start")
+    app.buttons["End"].tap()
+    XCTAssertEqual(current.label, "3. Bc4")
+    snapshot(app, "7-opening")
+
+    // A variation starts where it branches, so the next move is its first new one.
+    app.buttons["Two Knights Defense"].tap()
+    XCTAssertEqual(current.label, "3. Bc4")
+    app.buttons["Next move"].tap()
+    XCTAssertEqual(current.label, "3... Nf6")
+    snapshot(app, "8-variation")
+  }
+
   /// The app remembers the last nickname, so ask it to forget.
   @MainActor
   private func launchWithEmptyNickname() -> XCUIApplication {
