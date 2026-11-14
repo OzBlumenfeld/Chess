@@ -8,11 +8,22 @@ public struct Player: Codable, Hashable, Sendable {
   public let username: String
   public let rating: Int
   public let result: String
+
+  public init(username: String, rating: Int, result: String) {
+    self.username = username
+    self.rating = rating
+    self.result = result
+  }
 }
 
 public struct Accuracies: Codable, Hashable, Sendable {
   public let white: Double
   public let black: Double
+
+  public init(white: Double, black: Double) {
+    self.white = white
+    self.black = black
+  }
 }
 
 /// One game from a chess.com monthly archive.
@@ -30,7 +41,27 @@ public struct ChessGame: Codable, Hashable, Identifiable, Sendable {
   public let eco: String?
   public let accuracies: Accuracies?
 
+  public init(
+    uuid: String, url: String, pgn: String, timeControl: String, endTime: TimeInterval,
+    rated: Bool, timeClass: String, rules: String, white: Player, black: Player,
+    eco: String?, accuracies: Accuracies?
+  ) {
+    self.uuid = uuid
+    self.url = url
+    self.pgn = pgn
+    self.timeControl = timeControl
+    self.endTime = endTime
+    self.rated = rated
+    self.timeClass = timeClass
+    self.rules = rules
+    self.white = white
+    self.black = black
+    self.eco = eco
+    self.accuracies = accuracies
+  }
+
   public var id: String { uuid }
+  public var site: GameSite { url.contains("lichess.org") ? .lichess : .chessCom }
   public var endDate: Date { Date(timeIntervalSince1970: endTime) }
 
   enum CodingKeys: String, CodingKey {

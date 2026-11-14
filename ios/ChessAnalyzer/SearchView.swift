@@ -5,7 +5,7 @@ struct SearchView: View {
   private enum Phase {
     case idle
     case loading
-    case loaded(username: String, games: [ChessGame], cursor: ChessComClient.Cursor)
+    case loaded(username: String, games: [ChessGame], cursor: GameCursor)
     case failed(String)
   }
 
@@ -13,11 +13,13 @@ struct SearchView: View {
   private struct Search: Equatable {
     let id = UUID()
     let username: String
+    let site: GameSite
   }
 
   private static let pageSize = 5
 
   @AppStorage("lastNickname") private var nickname = ""
+  @AppStorage("gameSite") private var site = GameSite.chessCom
   @State private var search: Search?
   @State private var phase = Phase.idle
   @State private var loadingMore = false
@@ -28,7 +30,12 @@ struct SearchView: View {
     NavigationStack {
       List {
         Section {
-          TextField("Chess.com nickname", text: $nickname)
+          Picker("Site", selection: $site) {
+            ForEach(GameSite.allCases, id: \.self) { Text($0.name) }
+          }
+          .pickerStyle(.segmented)
+          .listRowSeparator(.hidden)
+          TextField(site == .chessCom ? "Chess.com nickname" : "Lichess username", text: $nickname)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .submitLabel(.search)
@@ -105,7 +112,7 @@ struct SearchView: View {
   private func submit() {
     guard !trimmedNickname.isEmpty else { return }
     fieldFocused = false
-    search = Search(username: trimmedNickname)
+    search = Search(username: trimmedNickname, site: site)
   }
 
   private func load() async {
@@ -113,14 +120,15 @@ struct SearchView: View {
     phase = .loading
     loadMoreError = nil
     do {
-      let page = try await ChessComClient().firstPage(for: search.username, limit: Self.pageSize)
+      let page = try await GameFetcher().firstPage(
+        on: search.site, for: search.username, limit: Self.pageSize)
       phase = .loaded(username: search.username, games: page.games, cursor: page.cursor)
     } catch is CancellationError {
       return  // a newer search took over
     } catch let error as URLError where error.code == .cancelled {
       return
     } catch {
-      phase = .failed(message(for: error, username: search.username))
+      phase = .failed(message(for: error, username: search.username, site: search.site))
     }
   }
 
@@ -132,25 +140,25 @@ struct SearchView: View {
     loadMoreError = nil
     defer { loadingMore = false }
     do {
-      let page = try await ChessComClient().nextPage(after: cursor, limit: Self.pageSize)
+      let page = try await GameFetcher().nextPage(after: cursor, limit: Self.pageSize)
       guard self.search?.id == search.id else { return }  // a new search started meanwhile
       phase = .loaded(username: username, games: games + page.games, cursor: page.cursor)
     } catch {
       guard self.search?.id == search.id else { return }
-      loadMoreError = message(for: error, username: username)
+      loadMoreError = message(for: error, username: username, site: search.site)
     }
   }
 
-  private func message(for error: Error, username: String) -> String {
+  private func message(for error: Error, username: String, site: GameSite) -> String {
     switch error {
-    case ChessComError.playerNotFound:
-      "No chess.com player named \(username)."
-    case ChessComError.badStatus(429):
-      "Chess.com is rate limiting requests. Try again in a minute."
+    case GameSiteError.playerNotFound:
+      site == .chessCom ? "No chess.com player named \(username)." : "No Lichess player named \(username)."
+    case GameSiteError.badStatus(429):
+      "\(site.name) is rate limiting requests. Try again in a minute."
     case is URLError:
-      "Couldn't reach chess.com. Check your connection."
+      "Couldn't reach \(site == .chessCom ? "chess.com" : "Lichess"). Check your connection."
     default:
-      "Chess.com sent something unexpected. Try again."
+      "\(site.name) sent something unexpected. Try again."
     }
   }
 }

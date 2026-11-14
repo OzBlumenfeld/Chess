@@ -53,6 +53,31 @@ final class GameFlowTests: XCTestCase {
   }
 
   @MainActor
+  func testLichessGames() {
+    let app = launchWithEmptyNickname()
+    app.buttons["Lichess"].tap()
+    let field = app.textFields["Lichess username"]
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    field.tap()
+    field.typeText("DrNykterstein")
+    app.buttons["Find games"].tap()
+
+    let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS ', vs '"))
+    XCTAssertTrue(rows.firstMatch.waitForExistence(timeout: 20), "no games loaded")
+    XCTAssertEqual(rows.count, 5)
+    snapshot(app, "12-lichess-search")
+
+    rows.firstMatch.tap()
+    let next = app.buttons["Next move"]
+    XCTAssertTrue(next.waitForExistence(timeout: 5))
+    next.tap()
+    XCTAssertTrue(app.staticTexts["currentMove"].label.hasPrefix("1. "))
+    app.buttons["Stats"].tap()
+    XCTAssertTrue(app.staticTexts["Opening choice"].firstMatch.waitForExistence(timeout: 5))
+    snapshot(app, "13-lichess-stats")
+  }
+
+  @MainActor
   func testReviewGameWithStockfish() throws {
     let app = launchWithEmptyNickname(extra: ["-reviewDepth", "6"])
     let field = app.textFields["Chess.com nickname"]

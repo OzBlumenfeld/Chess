@@ -1,8 +1,9 @@
 # Chess Analyzer (iOS)
 
-An iPhone app: enter a chess.com nickname, browse their latest games, step
-through a game on a board, and see which opening each player chose. It talks
-to chess.com's public API directly, so it needs no server.
+An iPhone app: pick Chess.com or Lichess, enter a username, browse their
+latest games, step through a game on a board, and see which opening each
+player chose. It talks to both sites' public APIs directly, so it needs no
+server or login.
 
 On a game's Board tab, **Review game** runs Stockfish 17 on the phone over
 every position: moves get ?!/?/?? marks, the board shows an eval bar and the
@@ -14,7 +15,7 @@ uses Lichess's win-chance formula.
 An Openings tab teaches 20 common openings: pick one, choose a variation, and
 step through it (or press play) on the board.
 
-- `ChessCore/`: the chess.com client, PGN replay, opening names and the
+- `ChessCore/`: the chess.com and Lichess clients (`GameFetcher` picks one), PGN replay, opening names and the
   openings library (`OpeningLibrary.swift`). Plain Swift with no UI and no
   dependencies, so it tests on the Mac.
 - `ChessAnalyzer/`: the SwiftUI app. `StockfishEngine.swift` wraps the engine;

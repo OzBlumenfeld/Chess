@@ -321,3 +321,58 @@ private func uci(_ ply: Ply) -> String {
     #expect(GameReview.accuracy(before: 300, after: -300) < 20)
   }
 }
+
+private actor Requests {
+  var urls: [URL] = []
+  func add(_ url: URL) { urls.append(url) }
+}
+
+@Suite struct LichessTests {
+  @Test func convertsGamesAndPagesBackwards() async throws {
+    let body = try #require(
+      Bundle.module.url(forResource: "lichess_games", withExtension: "ndjson", subdirectory: "Fixtures"))
+    let data = try Data(contentsOf: body)
+    let requests = Requests()
+    let fetcher = GameFetcher { request in
+      await requests.add(request.url!)
+      #expect(request.value(forHTTPHeaderField: "Accept") == "application/x-ndjson")
+      return (data, 200)
+    }
+
+    let first = try await fetcher.firstPage(on: .lichess, for: " DrNykterstein ", limit: 3)
+    #expect(first.games.count == 3 && first.cursor.hasMore)
+    let game = first.games[0]
+    #expect(game.site == .lichess)
+    #expect(game.url == "https://lichess.org/HqjDTU4A")
+    #expect(game.white.username == "DrNykterstein" && game.white.rating == 3177)
+    #expect(game.outcome(for: "drnykterstein") == .win)
+    #expect(game.outcome(for: "Night-King96") == .loss)
+    #expect(game.timeControlDescription == "3 min")
+    #expect(game.accuracies == Accuracies(white: 84, black: 79))
+    #expect(game.endDate.timeIntervalSince1970 == 1_792_001_402.854)
+
+    let replay = try GameReplay(pgn: game.pgn)
+    #expect(replay.plies[1].san == "Nf6" && replay.plies[1].clock == "0:03:00")
+    let opening = OpeningParser.summary(of: game, sans: replay.plies.map(\.san))
+    #expect(opening.name == "Queen's Indian Accelerated" && opening.eco == "A50")
+
+    _ = try await fetcher.nextPage(after: first.cursor, limit: 3)
+    let urls = await requests.urls
+    #expect(urls[0].path == "/api/games/user/DrNykterstein")
+    #expect(!urls[0].query!.contains("until="))
+    #expect(urls[1].query!.contains("until="), "second page should start before the oldest game")
+  }
+
+  @Test func shortPageMeansNoMore() async throws {
+    let fetcher = GameFetcher { _ in (Data(), 200) }
+    let page = try await fetcher.firstPage(on: .lichess, for: "newbie", limit: 5)
+    #expect(page.games.isEmpty && !page.cursor.hasMore)
+  }
+
+  @Test func unknownPlayerIsTyped() async {
+    let fetcher = GameFetcher { _ in (Data(), 404) }
+    await #expect(throws: GameSiteError.playerNotFound("nobody")) {
+      try await fetcher.firstPage(on: .lichess, for: "nobody")
+    }
+  }
+}

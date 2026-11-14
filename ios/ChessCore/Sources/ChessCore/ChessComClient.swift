@@ -1,10 +1,6 @@
 import Foundation
 
-public enum ChessComError: Error, Equatable, Sendable {
-  case playerNotFound(String)
-  case badStatus(Int)
-  case invalidResponse
-}
+public typealias ChessComError = GameSiteError
 
 /// Reads chess.com's public API. No login or API key is needed.
 public struct ChessComClient: Sendable {

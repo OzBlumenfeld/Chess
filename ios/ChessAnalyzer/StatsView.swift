@@ -13,7 +13,7 @@ struct StatsView: View {
       } header: {
         Text("Opening")
       } footer: {
-        Text("Chess.com names one opening per game. Crediting it to a player is an estimate: defenses go to Black, the rest to White.")
+        Text("\(game.site.name) names one opening per game. Crediting it to a player is an estimate: defenses go to Black, the rest to White.")
       }
 
       Section("White: \(game.white.username)") {
