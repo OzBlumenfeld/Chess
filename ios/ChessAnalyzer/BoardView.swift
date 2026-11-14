@@ -5,6 +5,8 @@ struct BoardView: View {
   let pieces: [BoardSquare: BoardPiece]
   let lastPly: Ply?
   let flipped: Bool
+  /// Engine suggestion drawn on top of the pieces.
+  var arrow: (from: BoardSquare, to: BoardSquare)? = nil
 
   private static let light = Color(red: 0.93, green: 0.87, blue: 0.76)
   private static let dark = Color(red: 0.55, green: 0.40, blue: 0.29)
@@ -25,10 +27,22 @@ struct BoardView: View {
           }
         }
       }
+      .overlay {
+        if let arrow {
+          ArrowView(from: center(of: arrow.from, size: size), to: center(of: arrow.to, size: size), size: size)
+            .accessibilityIdentifier("bestMoveArrow")
+        }
+      }
     }
     .aspectRatio(1, contentMode: .fit)
     .accessibilityElement()
     .accessibilityLabel("Chess board")
+  }
+
+  private func center(of square: BoardSquare, size: CGFloat) -> CGPoint {
+    let column = flipped ? 7 - square.file : square.file
+    let row = flipped ? square.rank : 7 - square.rank
+    return CGPoint(x: (CGFloat(column) + 0.5) * size, y: (CGFloat(row) + 0.5) * size)
   }
 
   private func squareView(_ square: BoardSquare, size: CGFloat) -> some View {
@@ -41,6 +55,34 @@ struct BoardView: View {
       }
     }
     .frame(width: size, height: size)
+  }
+}
+
+private struct ArrowView: View {
+  let from: CGPoint
+  let to: CGPoint
+  let size: CGFloat
+
+  var body: some View {
+    let angle = atan2(to.y - from.y, to.x - from.x)
+    let head = size * 0.38
+    // Stop the shaft where the head starts so the two don't overlap.
+    let shaftEnd = CGPoint(x: to.x - cos(angle) * head * 0.8, y: to.y - sin(angle) * head * 0.8)
+    ZStack {
+      Path { path in
+        path.move(to: from)
+        path.addLine(to: shaftEnd)
+      }
+      .stroke(style: StrokeStyle(lineWidth: size * 0.16, lineCap: .round))
+      Path { path in
+        path.move(to: to)
+        path.addLine(to: CGPoint(x: to.x - cos(angle - .pi / 6) * head, y: to.y - sin(angle - .pi / 6) * head))
+        path.addLine(to: CGPoint(x: to.x - cos(angle + .pi / 6) * head, y: to.y - sin(angle + .pi / 6) * head))
+        path.closeSubpath()
+      }
+    }
+    .foregroundStyle(Color.blue.opacity(0.7))
+    .allowsHitTesting(false)
   }
 }
 

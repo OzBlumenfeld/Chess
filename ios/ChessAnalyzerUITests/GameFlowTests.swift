@@ -53,6 +53,36 @@ final class GameFlowTests: XCTestCase {
   }
 
   @MainActor
+  func testReviewGameWithStockfish() throws {
+    let app = launchWithEmptyNickname(extra: ["-reviewDepth", "6"])
+    let field = app.textFields["Chess.com nickname"]
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    field.tap()
+    field.typeText("hikaru")
+    app.buttons["Find games"].tap()
+    let firstGame = app.buttons.matching(NSPredicate(format: "label CONTAINS ', vs '")).firstMatch
+    XCTAssertTrue(firstGame.waitForExistence(timeout: 20), "no games loaded")
+    firstGame.tap()
+
+    let review = app.buttons["Review game"]
+    XCTAssertTrue(review.waitForExistence(timeout: 5))
+    review.tap()
+    XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Analyzing'")).firstMatch.waitForExistence(timeout: 10))
+    snapshot(app, "9-review-running")
+
+    let reviewTab = app.buttons["Review"]
+    XCTAssertTrue(reviewTab.waitForExistence(timeout: 180), "review didn't finish")
+    XCTAssertTrue(app.otherElements["Evaluation"].exists || app.descendants(matching: .any)["Evaluation"].exists)
+    for _ in 0..<6 { app.buttons["Next move"].tap() }
+    XCTAssertTrue(app.descendants(matching: .any)["moveVerdict"].exists)
+    snapshot(app, "10-review-board")
+
+    reviewTab.tap()
+    XCTAssertTrue(app.staticTexts["Accuracy"].waitForExistence(timeout: 5))
+    snapshot(app, "11-review-summary")
+  }
+
+  @MainActor
   func testUnknownPlayerShowsMessage() {
     let app = launchWithEmptyNickname()
     let field = app.textFields["Chess.com nickname"]
@@ -90,9 +120,9 @@ final class GameFlowTests: XCTestCase {
 
   /// The app remembers the last nickname, so ask it to forget.
   @MainActor
-  private func launchWithEmptyNickname() -> XCUIApplication {
+  private func launchWithEmptyNickname(extra: [String] = []) -> XCUIApplication {
     let app = XCUIApplication()
-    app.launchArguments += ["-resetForUITests"]
+    app.launchArguments += ["-resetForUITests"] + extra
     app.launch()
     return app
   }

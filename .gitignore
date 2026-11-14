@@ -19,3 +19,6 @@ ios/ChessAnalyzer.xcodeproj/
 .swiftpm/
 DerivedData/
 .DS_Store
+
+# Stockfish networks, fetched by ios/scripts/fetch-nnue.sh
+*.nnue
