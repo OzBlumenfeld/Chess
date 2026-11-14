@@ -6,6 +6,9 @@ options:
 packages:
   ChessCore:
     path: ChessCore
+  ChessKitEngine:
+    url: https://github.com/chesskit-app/chesskit-engine
+    exactVersion: 0.7.0
 targets:
   ChessAnalyzer:
     type: application
@@ -13,6 +16,7 @@ targets:
     sources: [ChessAnalyzer]
     dependencies:
       - package: ChessCore
+      - package: ChessKitEngine
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
@@ -40,5 +44,9 @@ schemes:
       targets:
         ChessAnalyzer: all
         ChessAnalyzerUITests: [test]
+    # Release, because Debug builds Stockfish unoptimized (package targets ignore
+    # project settings), which makes a review 10x+ slower.
+    run:
+      config: Release
     test:
       targets: [ChessAnalyzerUITests]

@@ -66,8 +66,8 @@ struct ReplayBoard {
         }
         if gap > 0 { row += String(gap) }
         gap = 0
-        let letter = Self.kinds.first { $0.value == piece.kind }!.key
-        row += piece.isWhite ? letter.uppercased() : String(letter)
+        let letter = Self.letter(of: piece.kind)
+        row += piece.isWhite ? letter.uppercased() : letter
       }
       if gap > 0 { row += String(gap) }
       rows.append(row)
@@ -105,6 +105,60 @@ struct ReplayBoard {
     if !whiteToMove { fullmove += 1 }
     whiteToMove.toggle()
     return (Self.square(from), Self.square(to))
+  }
+
+  /// SAN for a legal move written in UCI form ("g1f3", "e7e8q"), or nil if
+  /// the side to move has no piece on its origin. Checks get `+`; mate is
+  /// not detected, so it is also written `+`.
+  func san(ofUCI uci: String) -> String? {
+    guard uci.count >= 4,
+      let from = Self.index(of: Substring(uci.prefix(2))),
+      let to = Self.index(of: Substring(uci.dropFirst(2).prefix(2))),
+      let piece = squares[from], piece.isWhite == whiteToMove
+    else { return nil }
+    let promotion = uci.dropFirst(4).first.flatMap { Self.kinds[Character($0.lowercased())] }
+    let isCapture = squares[to] != nil || (piece.kind == .pawn && from % 8 != to % 8)
+    let target = Self.name(of: to)
+
+    var san: String
+    if piece.kind == .king, abs(to - from) == 2 {
+      san = to > from ? "O-O" : "O-O-O"
+    } else if piece.kind == .pawn {
+      san = (isCapture ? "\(Self.name(of: from).first!)x" : "") + target
+      if let promotion { san += "=" + Self.letter(of: promotion).uppercased() }
+    } else {
+      let rivals = squares.indices.filter {
+        $0 != from && squares[$0] == piece && attacks(from: $0, to: to)
+          && !leavesKingInCheck(from: $0, to: to)
+      }
+      let origin = Self.name(of: from)
+      let hint: String
+      if rivals.isEmpty {
+        hint = ""
+      } else if !rivals.contains(where: { $0 % 8 == from % 8 }) {
+        hint = String(origin.first!)
+      } else if !rivals.contains(where: { $0 / 8 == from / 8 }) {
+        hint = String(origin.last!)
+      } else {
+        hint = origin
+      }
+      san = Self.letter(of: piece.kind).uppercased() + hint + (isCapture ? "x" : "") + target
+    }
+
+    let next = moved(from: from, to: to, promotion: promotion)
+    let enemyKing = BoardPiece(kind: .king, isWhite: !whiteToMove)
+    if let king = next.squares.firstIndex(of: enemyKing),
+      next.squares.indices.contains(where: {
+        next.squares[$0]?.isWhite == whiteToMove && next.attacks(from: $0, to: king)
+      })
+    {
+      san += "+"
+    }
+    return san
+  }
+
+  private static func letter(of kind: PieceKind) -> String {
+    String(kinds.first { $0.value == kind }!.key)
   }
 
   private func resolve(_ text: String) -> (from: Int, to: Int, promotion: PieceKind?)? {

@@ -243,3 +243,136 @@ private let archives = Data(#"{"archives":["\#(oldURL)","\#(newURL)"]}"#.utf8)
     }
   }
 }
+
+private func uci(_ ply: Ply) -> String {
+  func name(_ square: BoardSquare) -> String {
+    "\(Character(UnicodeScalar(UInt8(97 + square.file))))\(square.rank + 1)"
+  }
+  let promotion = ply.san.split(separator: "=").dropFirst().first?.prefix(1).lowercased() ?? ""
+  return name(ply.from) + name(ply.to) + promotion
+}
+
+@Suite struct ReviewTests {
+  @Test func uciToSANMatchesEveryFixtureMove() throws {
+    for game in try fixtureGames() {
+      let replay = try GameReplay(pgn: game.pgn)
+      for ply in replay.plies {
+        let expected = ply.san.replacingOccurrences(of: "#", with: "+")
+        #expect(replay.san(ofUCI: uci(ply), atPosition: ply.id - 1) == expected, "\(game.url)")
+      }
+    }
+  }
+
+  @Test(arguments: [
+    ("4k3/8/8/3p4/5N2/2N5/8/4K3 w - - 0 1", "f4d5", "Nfxd5"),
+    ("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", "e1c1", "O-O-O"),
+    ("8/4P3/8/8/8/8/k7/4K3 w - - 0 1", "e7e8q", "e8=Q"),
+    ("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1", "a1a8", "Ra8+"),
+    ("3k4/8/8/8/8/8/4K3/R6R w - - 0 1", "a1d1", "Rad1+"),
+  ])
+  func uciToSAN(fen: String, uci: String, san: String) throws {
+    let replay = try GameReplay(pgn: "[FEN \"\(fen)\"]\n\n*")
+    #expect(replay.san(ofUCI: uci, atPosition: 0) == san)
+  }
+
+  @Test func classificationThresholdsMatchPython() {
+    #expect(MoveClassification(centipawnLoss: 0) == .best)
+    #expect(MoveClassification(centipawnLoss: 19) == .best)
+    #expect(MoveClassification(centipawnLoss: 20) == .good)
+    #expect(MoveClassification(centipawnLoss: 50) == .inaccuracy)
+    #expect(MoveClassification(centipawnLoss: 100) == .mistake)
+    #expect(MoveClassification(centipawnLoss: 300) == .blunder)
+  }
+
+  @Test func scoresAreConvertedToWhitesView() {
+    #expect(Evaluation(cp: 50, mate: nil, whiteToMove: false) == .centipawns(-50))
+    #expect(Evaluation(cp: nil, mate: 3, whiteToMove: false) == .mate(moves: 3, whiteWins: false))
+    #expect(Evaluation(cp: nil, mate: -2, whiteToMove: false) == .mate(moves: 2, whiteWins: true))
+    // Side to move is mated.
+    #expect(Evaluation(cp: nil, mate: 0, whiteToMove: true) == .mate(moves: 0, whiteWins: false))
+    #expect(Evaluation.mate(moves: 3, whiteWins: false).whiteCentipawns == -9_997)
+    #expect(Evaluation.centipawns(130).label == "+1.3")
+    #expect(Evaluation.mate(moves: 2, whiteWins: false).label == "-M2")
+  }
+
+  @Test func reviewsAGame() throws {
+    // 1. f3 e5 2. g4 Qh4#: White slips, then blunders; Black finds mate.
+    let replay = try GameReplay(pgn: "1. f3 e5 2. g4 Qh4# 0-1")
+    let positions = [
+      PositionAnalysis(evaluation: .centipawns(30), bestMove: "e2e4"),
+      PositionAnalysis(evaluation: .centipawns(-60), bestMove: "e7e5"),
+      PositionAnalysis(evaluation: .centipawns(-70), bestMove: "g1h3"),
+      PositionAnalysis(evaluation: .mate(moves: 1, whiteWins: false), bestMove: "d8h4"),
+      PositionAnalysis(evaluation: .mate(moves: 0, whiteWins: false), bestMove: nil),
+    ]
+    let review = GameReview(replay: replay, positions: positions)
+    #expect(review.moves.map(\.classification) == [.inaccuracy, .best, .blunder, .best])
+    #expect(review.moves[0].centipawnLoss == 90)
+    #expect(review.moves[2].bestMoveSAN == "Nh3")
+    #expect(review.moves[3].playedBest && !review.moves[2].playedBest)
+    #expect(review.black.accuracy > 99)
+    #expect(review.white.accuracy < 60)
+    #expect(review.white.count(.blunder) == 1 && review.white.count(.inaccuracy) == 1)
+  }
+
+  @Test func accuracyIsPerfectWhenNothingIsLost() {
+    #expect(GameReview.accuracy(before: 40, after: 40) > 99.9)
+    #expect(GameReview.accuracy(before: 40, after: 400) > 99.9)
+    #expect(GameReview.accuracy(before: 300, after: -300) < 20)
+  }
+}
+
+private actor Requests {
+  var urls: [URL] = []
+  func add(_ url: URL) { urls.append(url) }
+}
+
+@Suite struct LichessTests {
+  @Test func convertsGamesAndPagesBackwards() async throws {
+    let body = try #require(
+      Bundle.module.url(forResource: "lichess_games", withExtension: "ndjson", subdirectory: "Fixtures"))
+    let data = try Data(contentsOf: body)
+    let requests = Requests()
+    let fetcher = GameFetcher { request in
+      await requests.add(request.url!)
+      #expect(request.value(forHTTPHeaderField: "Accept") == "application/x-ndjson")
+      return (data, 200)
+    }
+
+    let first = try await fetcher.firstPage(on: .lichess, for: " DrNykterstein ", limit: 3)
+    #expect(first.games.count == 3 && first.cursor.hasMore)
+    let game = first.games[0]
+    #expect(game.site == .lichess)
+    #expect(game.url == "https://lichess.org/HqjDTU4A")
+    #expect(game.white.username == "DrNykterstein" && game.white.rating == 3177)
+    #expect(game.outcome(for: "drnykterstein") == .win)
+    #expect(game.outcome(for: "Night-King96") == .loss)
+    #expect(game.timeControlDescription == "3 min")
+    #expect(game.accuracies == Accuracies(white: 84, black: 79))
+    #expect(game.endDate.timeIntervalSince1970 == 1_792_001_402.854)
+
+    let replay = try GameReplay(pgn: game.pgn)
+    #expect(replay.plies[1].san == "Nf6" && replay.plies[1].clock == "0:03:00")
+    let opening = OpeningParser.summary(of: game, sans: replay.plies.map(\.san))
+    #expect(opening.name == "Queen's Indian Accelerated" && opening.eco == "A50")
+
+    _ = try await fetcher.nextPage(after: first.cursor, limit: 3)
+    let urls = await requests.urls
+    #expect(urls[0].path == "/api/games/user/DrNykterstein")
+    #expect(!urls[0].query!.contains("until="))
+    #expect(urls[1].query!.contains("until="), "second page should start before the oldest game")
+  }
+
+  @Test func shortPageMeansNoMore() async throws {
+    let fetcher = GameFetcher { _ in (Data(), 200) }
+    let page = try await fetcher.firstPage(on: .lichess, for: "newbie", limit: 5)
+    #expect(page.games.isEmpty && !page.cursor.hasMore)
+  }
+
+  @Test func unknownPlayerIsTyped() async {
+    let fetcher = GameFetcher { _ in (Data(), 404) }
+    await #expect(throws: GameSiteError.playerNotFound("nobody")) {
+      try await fetcher.firstPage(on: .lichess, for: "nobody")
+    }
+  }
+}

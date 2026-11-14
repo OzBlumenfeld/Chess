@@ -1,6 +1,6 @@
 import Foundation
 
-/// What each side played in the opening. Chess.com reports one opening per
+/// What each side played in the opening. Both sites report one opening per
 /// game, so crediting it to a player is derived, see `chooser(of:)`.
 public struct OpeningSummary: Hashable, Sendable {
   public let eco: String?
@@ -28,7 +28,8 @@ public enum OpeningParser {
     let url = game.eco ?? game.pgnTag("ECOUrl")
     return OpeningSummary(
       eco: game.pgnTag("ECO"),
-      name: url.flatMap(name(fromURL:)),
+      // Chess.com names the opening in a URL; Lichess has an Opening tag.
+      name: url.flatMap(name(fromURL:)) ?? game.pgnTag("Opening"),
       whiteFirstMove: sans.first,
       blackFirstMove: sans.dropFirst().first
     )
